@@ -14,7 +14,7 @@ class Todo {
       required this.tasks,
       this.note = "",
       this.done = false,
-      this.star = false});
+      this.star = false, dataTime});
 
   Map<String, dynamic> toJson() => {
         "title": title,
@@ -28,6 +28,14 @@ class Todo {
         "done": done,
         "star": star
       };
+
+  Map<String, dynamic> tasksToJson() => {
+    "tasks": List<dynamic>.from(
+      tasks.map(
+            (x) => x.toJson(),
+      ),
+    ),
+  };
 
   factory Todo.fromJson(Map<String, dynamic> json) => Todo(
         title: json["title"],
