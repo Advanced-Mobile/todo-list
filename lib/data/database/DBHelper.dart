@@ -17,10 +17,10 @@ class DBHelper with ChangeNotifier {
       path.join(dbPath, 'todo_master.db'),
       onCreate: (db, version) {
         final stmt = '''CREATE TABLE IF NOT EXISTS $tableName (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id TEXT PRIMARY KEY,
             title TEXT,
             tasks TEXT,
-            dateTime DATETIME,
+            dateTime INTEGER,
             note TEXT,
             done INTEGER,
             star INTEGER
@@ -36,6 +36,14 @@ class DBHelper with ChangeNotifier {
 
   Future<void> insert(String table, Map<String, Object> data) async {
     await db?.insert(table, data, conflictAlgorithm: sql.ConflictAlgorithm.replace);
+  }
+
+  Future<void> update(String table, Map<String, Object> data, id) async {
+    await db?.update(table, data, conflictAlgorithm: sql.ConflictAlgorithm.replace, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> delete(String table, id) async {
+    await db?.delete(table, where: 'id = ?', whereArgs: [id]);
   }
 
   Future<List<Map<String, dynamic>>?> getData(String table) async {

@@ -4,11 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:todo_list/models/Todo.dart';
 
 import '../data/database/DBHelper.dart';
-import '../models/Task.dart';
 
 class DataProvider with ChangeNotifier {
   final DBHelper? dbHelper;
-  List<dynamic> _items = [];
+  List<Todo> _items = [];
   final tableName = 'todo';
 
   DataProvider(this._items, this.dbHelper) {
@@ -17,25 +16,51 @@ class DataProvider with ChangeNotifier {
 
   List<Todo> get items => [..._items];
 
-  void addTodo(String title, DateTime dateTime, List<Task> tasks) {
+  void addTodo(Todo todo) {
     if (dbHelper?.db != null) {
       // do not execute if db is not instantiate
-      final newTodo = Todo(
-        title: title,
-        dateTime: dateTime,
-        tasks: tasks,
-      );
-      _items.add(newTodo);
+      _items.add(todo);
       notifyListeners();
       dbHelper?.insert(tableName, {
-        'title': newTodo.title,
-        "dateTime": newTodo.dateTime,
-        "tasks": json.encode(newTodo.tasksToJson()),
-        "note": newTodo.note,
-        "done": newTodo.done ? 1 : 0,
-        "star": newTodo.star ? 1 : 0,
+        "id": todo.id,
+        'title': todo.title,
+        "dateTime": todo.dateTime.millisecondsSinceEpoch,
+        "tasks": json.encode(todo.tasksToJson()),
+        "note": todo.note,
+        "done": todo.done ? 1 : 0,
+        "star": todo.star ? 1 : 0,
       });
     }
+  }
+
+  void updateTodo(Todo todo) {
+    if (dbHelper?.db != null) {
+      // do not execute if db is not instantiate
+      final index = _items.indexWhere((element) => element.id == todo.id);
+      if (index != -1) {
+        _items[index].tasks = todo.tasks;
+        _items[index].dateTime = todo.dateTime;
+        _items[index].title = todo.title;
+        _items[index].done = todo.done;
+        _items[index].star = todo.star;
+        _items[index].note = todo.note;
+        notifyListeners();
+        dbHelper?.update(tableName, {
+          'title': todo.title,
+          "dateTime": todo.dateTime.millisecondsSinceEpoch,
+          "tasks": json.encode(todo.tasksToJson()),
+          "note": todo.note,
+          "done": todo.done ? 1 : 0,
+          "star": todo.star ? 1 : 0,
+        }, todo.id);
+      }
+    }
+  }
+  
+  void removeTodo(String id) {
+    _items.removeWhere((element) => element.id == id);
+    notifyListeners();
+    dbHelper?.delete(tableName, id);
   }
 
   Future<void> fetchAndSetData() async {
@@ -43,17 +68,10 @@ class DataProvider with ChangeNotifier {
       // do not execute if db is not instantiate
       final dataList = await dbHelper?.getData(tableName);
       if (dataList != null) {
+        print(dataList[0]);
         _items = dataList
-            .map(
-              (item) => Todo(
-                  title: item['title'],
-                  dateTime: item['dateTime'],
-                  tasks: json.decode(item['tasks'])['task'],
-                  note: item['note'],
-                  done: item['done'] == 1 ? true : false,
-                  star: item['star'] == 1 ? true : false),
-            )
-            .toList();
+            .map<Todo>(
+                (item) => Todo.fromJson(item)).toList();
         notifyListeners();
       }
     }

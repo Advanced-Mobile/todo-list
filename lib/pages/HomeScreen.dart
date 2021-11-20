@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:todo_list/models/Todo.dart';
 import 'package:todo_list/utils/contains.dart';
 import 'package:todo_list/utils/widget_functions.dart';
 import 'package:flutter_neumorphic/flutter_neumorphic.dart';
+import 'package:todo_list/widgets/AddDialog.dart';
+import 'package:todo_list/widgets/CustomTextButton.dart';
+import 'package:todo_list/widgets/CustomTextField.dart';
+import 'package:todo_list/widgets/TodoDetailDialog.dart';
 
+import '../data/api/notification_api.dart';
+import '../provider/BDProvider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -14,33 +21,24 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+
   var isChangeIcon = false;
   var opacity = 0.5;
   var actionIndex = 0;
-  final List<Todo> todoList = [
-    Todo(
-        title: "Lorem Ipsum is simply dummy text 1",
-        dateTime: DateTime.utc(2021),
-    tasks: [],),
-    Todo(title: "Lorem Ipsum is simply dummy text 2", dateTime: DateTime.now(), tasks: [],),
-    Todo(
-        title: "Lorem Ipsum is simply dummy text 3",
-        dateTime: DateTime.utc(2021, 12), tasks: [],),
-    Todo(title: "Lorem Ipsum is simply dummy text 4", dateTime: DateTime.now(), tasks: [],),
-    Todo(
-        title: "Lorem Ipsum is simply dummy text 5",
-        dateTime: DateTime.now(),
-        done: true, tasks: [],),
-    Todo(
-        title:
-            "Lorem Ipsum is simply dummy text Lorem Ipsum is simply dummy text 6",
-        dateTime: DateTime.now(), tasks: [],),
-    Todo(title: "Lorem Ipsum is simply dummy text 7", dateTime: DateTime.now(), tasks: [],),
-  ];
+  TextEditingController _addTaskController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    NotificationApi.requestPermissions();
+    NotificationApi.init(initScheduled: true);
+    listenNotification();
+  }
+
+  void listenNotification() => NotificationApi.onNotifications.stream.listen(onClickNotification);
+
+  void onClickNotification(String? payload) {
+    print(payload.toString());
   }
 
   @override
@@ -49,90 +47,89 @@ class _HomeScreenState extends State<HomeScreen> {
     final ThemeData themeData = Theme.of(context);
     final double padding = 25;
     final sidePadding = EdgeInsets.symmetric(horizontal: padding);
-    var todoListDoing = todoList.where((element) => !element.done).toList();
-    var todoListDone = todoList.where((element) => element.done).toList();
-    if (actionIndex == 1) {
-      todoListDoing = todoList
-          .where(
-            (element) =>
-                !element.done && element.dateTime.day == DateTime.now().day,
-          )
-          .toList();
-      todoListDone = todoList
-          .where(
-            (element) =>
-                element.done && element.dateTime.day == DateTime.now().day,
-          )
-          .toList();
-    } else if (actionIndex == 2) {
-      todoListDoing = todoList
-          .where(
-            (element) =>
-                !element.done &&
-                element.dateTime.isAfter(
-                  DateTime.now(),
-                ),
-          )
-          .toList();
-      todoListDone = todoList
-          .where(
-            (element) =>
-                element.done &&
-                element.dateTime.isAfter(
-                  DateTime.now(),
-                ),
-          )
-          .toList();
-    } else if (actionIndex == 3) {
-      todoListDoing = todoList
-          .where(
-            (element) =>
-        !element.done &&
-            element.star == true
-      )
-          .toList();
-      todoListDone = todoList
-          .where(
-            (element) =>
-        element.done &&
-            element.star == true
-      )
-          .toList();
-    }
-    final countDone = todoListDone.length;
-    return Scaffold(
-      body: Container(
-        width: size.width,
-        height: size.height,
-        child: Stack(
-          fit: StackFit.expand,
-          children: <Widget>[
-            SingleChildScrollView(
-              padding: EdgeInsets.only(bottom: 80, top: 90),
-              physics: BouncingScrollPhysics(),
-              child: Column(
-                children: <Widget>[
-                  Column(
-                    children: List.generate(
-                      todoListDoing.length,
-                      (index) => TodoItem(
-                        itemData: todoListDoing[index],
-                        radioAction: () {
-                          setState(() {
-                            todoListDoing[index].done = true;
-                          });
-                        },
-                        starAction: () {
-                          setState(() {
-                            todoListDoing[index].star = !todoListDoing[index].star;
-                          });
-                        },
-                      ),
-                    ),
+    final dataProvider = context.watch<DataProvider>();
+    return Consumer<DataProvider>(
+        builder: (context, dataProvider, child) {
+          var todoListDoing = dataProvider.items.where((element) => !element.done).toList();
+          var todoListDone = dataProvider.items.where((element) => element.done).toList();
+          if (actionIndex == 1) {
+            todoListDoing = dataProvider.items
+                .where(
+                  (element) =>
+              !element.done && element.dateTime.day == DateTime.now().day,
+            )
+                .toList();
+            todoListDone = dataProvider.items
+                .where(
+                  (element) =>
+              element.done && element.dateTime.day == DateTime.now().day,
+            )
+                .toList();
+          } else if (actionIndex == 2) {
+            todoListDoing = dataProvider.items
+                .where(
+                  (element) =>
+              !element.done &&
+                  element.dateTime.isAfter(
+                    DateTime.now(),
                   ),
-                  countDone > 0 ? addVerticalSpace(10) : Container(),
-                  countDone > 0
-                      ? Container(
+            )
+                .toList();
+            todoListDone = dataProvider.items
+                .where(
+                  (element) =>
+              element.done &&
+                  element.dateTime.isAfter(
+                    DateTime.now(),
+                  ),
+            )
+                .toList();
+          } else if (actionIndex == 3) {
+            todoListDoing = dataProvider.items
+                .where((element) => !element.done && element.star == true)
+                .toList();
+            todoListDone = dataProvider.items
+                .where((element) => element.done && element.star == true)
+                .toList();
+          }
+          final countDone = todoListDone.length;
+          return Scaffold(
+            resizeToAvoidBottomInset: false,
+            body: Container(
+              width: size.width,
+              height: size.height,
+              child: Stack(
+                fit: StackFit.expand,
+                children: <Widget>[
+                  SingleChildScrollView(
+                    padding: EdgeInsets.only(bottom: 80, top: 90),
+                    physics: BouncingScrollPhysics(),
+                    child: Column(
+                      children: <Widget>[
+                        Column(
+                          children: List.generate(
+                            todoListDoing.length,
+                                (index) => TodoItem(
+                              itemData: todoListDoing[index],
+                              radioAction: () {
+                                setState(() {
+                                  todoListDoing[index].done = true;
+                                  dataProvider.updateTodo(todoListDoing[index]);
+                                });
+                              },
+                              starAction: () {
+                                setState(() {
+                                  todoListDoing[index].star =
+                                  !todoListDoing[index].star;
+                                  dataProvider.updateTodo(todoListDoing[index]);
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+                        countDone > 0 ? addVerticalSpace(10) : Container(),
+                        countDone > 0
+                            ? Container(
                           padding: sidePadding,
                           alignment: Alignment.centerLeft,
                           child: NeumorphicText(
@@ -151,132 +148,122 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                         )
-                      : Container(),
-                  countDone > 0 ? addVerticalSpace(10) : Container(),
-                  Column(
-                    children: List.generate(
-                      todoListDone.length,
-                      (index) => TodoItem(
-                        itemData: todoListDone[index],
-                        radioAction: () {
-                          setState(() {
-                            todoListDone[index].done = false;
-                          });
-                        },
-                        starAction: () {
-                          setState(() {
-                            todoListDoing[index].star = !todoListDoing[index].star;
-                          });
-                        },
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Positioned(
-              top: 0,
-              left: padding,
-              right: padding,
-              child: Container(
-                color: COLOR_WHITE.withOpacity(1),
-                width: size.width,
-                height: 80,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Expanded(
-                      child: Container(
-                        width: size.width,
-                        child: Text(
-                          "Todo List Official",
-                          style: TextStyle(
-                              color: COLOR_BLACK,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 22),
-                        ),
-                      ),
-                    ),
-                    addVerticalSpace(5),
-                    _listTextButton()
-                  ],
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: padding,
-              left: padding,
-              right: padding,
-              child: Container(
-                height: 50,
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 20.0),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10.0),
-                        color: COLOR_GRAY.withOpacity(opacity)),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: Icon(
-                            !isChangeIcon
-                                ? Icons.add
-                                : Icons.radio_button_unchecked,
-                            color: Colors.white,
-                          ),
-                          onPressed: () {},
-                        ),
-                        Expanded(
-                          child: TextField(
-                            onChanged: (text) {
-                              if (text.length > 0) {
-                                if (!isChangeIcon) {
-                                  setState(() {
-                                    isChangeIcon = true;
-                                  });
-                                }
-                              } else {
-                                if (isChangeIcon) {
-                                  setState(() {
-                                    isChangeIcon = false;
-                                  });
-                                }
-                              }
-                            },
-                            onTap: () {
-                              setState(() {
-                                opacity = 1;
-                              });
-                            },
-                            onSubmitted: (text) {
-                              setState(() {
-                                opacity = 0.5;
-                              });
-                            },
-                            decoration: InputDecoration(
-                              hintText: "Add a Task",
-                              border: InputBorder.none,
-                              hintStyle: TextStyle(
-                                  color: COLOR_WHITE,
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 16),
+                            : Container(),
+                        countDone > 0 ? addVerticalSpace(10) : Container(),
+                        Column(
+                          children: List.generate(
+                            todoListDone.length,
+                                (index) => TodoItem(
+                              itemData: todoListDone[index],
+                              radioAction: () {
+                                setState(() {
+                                  todoListDone[index].done = false;
+                                  dataProvider.updateTodo(todoListDone[index]);
+                                });
+                              },
+                              starAction: () {
+                                setState(() {
+                                  todoListDone[index].star =
+                                  !todoListDone[index].star;
+                                  dataProvider.updateTodo(todoListDone[index]);
+                                });
+                              },
                             ),
-                            style: TextStyle(
-                                color: COLOR_WHITE,
-                                fontWeight: FontWeight.w500,
-                                fontSize: 16),
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
+                  Positioned(
+                    top: 0,
+                    left: padding,
+                    right: padding,
+                    child: Container(
+                      color: COLOR_WHITE.withOpacity(1),
+                      width: size.width,
+                      height: 80,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Expanded(
+                            child: Container(
+                              width: size.width,
+                              child: Text(
+                                "Todo List Official",
+                                style: TextStyle(
+                                    color: COLOR_BLACK,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 22),
+                              ),
+                            ),
+                          ),
+                          addVerticalSpace(5),
+                          _listTextButton()
+                        ],
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: padding,
+                    left: padding,
+                    right: padding,
+                    child: CustomTextField(
+                      controller: _addTaskController,
+                      leftIcon: IconButton(
+                        icon: Icon(
+                          !isChangeIcon ? Icons.add : Icons.radio_button_unchecked,
+                          color: Colors.white,
+                        ),
+                        onPressed: () {},
+                      ),
+                      text: 'Add a Task',
+                      onChange: (text) {
+                        if (text.length > 0) {
+                          if (!isChangeIcon) {
+                            setState(() {
+                              isChangeIcon = true;
+                            });
+                          }
+                        } else {
+                          if (isChangeIcon) {
+                            setState(() {
+                              isChangeIcon = false;
+                            });
+                          }
+                        }
+                      },
+                      onTap: () {
+                        setState(() {
+                          opacity = 1;
+                        });
+                      },
+                      onSubmitted: (text) {
+                        if (text.length > 0) {
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (BuildContext context) => AddDialog(
+                              task: text,
+                            ),
+                          );
+                          setState(() {
+                            isChangeIcon = false;
+                            _addTaskController.clear();
+                          });
+                        }
+                        setState(() {
+                          opacity = 0.5;
+                        });
+                      },
+                      rightIcon: Container(),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-      ),
+          );
+        }
     );
   }
 
@@ -289,49 +276,42 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            _textButton("All", () {
-              setState(() {
-                actionIndex = 0;
-              });
-            }, actionIndex == 0 ? true : false),
+            CustomTextButton(
+                text: "All",
+                textAction: () {
+                  setState(() {
+                    actionIndex = 0;
+                  });
+                },
+                color: actionIndex == 0 ? COLOR_GRAY : COLOR_WHITE),
             addHorizontalSpace(10),
-            _textButton("Today", () {
-              setState(() {
-                actionIndex = 1;
-              });
-            }, actionIndex == 1 ? true : false),
+            CustomTextButton(
+                text: "Today",
+                textAction: () {
+                  setState(() {
+                    actionIndex = 1;
+                  });
+                },
+                color: actionIndex == 1 ? COLOR_GRAY : COLOR_WHITE),
             addHorizontalSpace(10),
-            _textButton("Upcoming", () {
-              setState(() {
-                actionIndex = 2;
-              });
-            }, actionIndex == 2 ? true : false),
+            CustomTextButton(
+                text: "Upcoming",
+                textAction: () {
+                  setState(() {
+                    actionIndex = 2;
+                  });
+                },
+                color: actionIndex == 2 ? COLOR_GRAY : COLOR_WHITE),
             addHorizontalSpace(10),
-            _textButton("Important", () {
-              setState(() {
-                actionIndex = 3;
-              });
-            }, actionIndex == 3 ? true : false),
+            CustomTextButton(
+                text: "Important",
+                textAction: () {
+                  setState(() {
+                    actionIndex = 3;
+                  });
+                },
+                color: actionIndex == 3 ? COLOR_GRAY : COLOR_WHITE),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _textButton(String text, void Function()? textAction, bool isClicked) {
-    return NeumorphicButton(
-      style: NeumorphicStyle(
-          shape: NeumorphicShape.concave,
-          boxShape: NeumorphicBoxShape.roundRect(BorderRadius.circular(12)),
-          depth: 8,
-          lightSource: LightSource.topLeft,
-          color: isClicked ? Colors.grey : Colors.white),
-      onPressed: textAction,
-      child: Center(
-        child: Text(
-          text,
-          style: TextStyle(
-              color: COLOR_BLACK, fontWeight: FontWeight.w700, fontSize: 14),
         ),
       ),
     );
@@ -339,6 +319,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _addTaskController.dispose();
     super.dispose();
   }
 }
@@ -357,11 +338,20 @@ class TodoItem extends StatelessWidget {
     final themeData = Theme.of(context);
     final double padding = 25;
     final countTasks = itemData.tasks.length;
-    final countDoneTasks = itemData.tasks.where((element) => element.done).length;
+    final countDoneTasks =
+        itemData.tasks.where((element) => element.done).length;
     return Container(
       margin: EdgeInsets.symmetric(vertical: 10, horizontal: padding),
       child: NeumorphicButton(
-        onPressed: () {},
+        onPressed: () {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (BuildContext context) => TodoDetailDialog(
+              todo: itemData,
+            ),
+          );
+        },
         style: NeumorphicStyle(
             shape: NeumorphicShape.concave,
             boxShape: NeumorphicBoxShape.roundRect(BorderRadius.circular(12)),
